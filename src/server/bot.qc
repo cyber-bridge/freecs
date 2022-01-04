@@ -23,6 +23,8 @@ class csbot:bot
 	virtual void(void) RunToBomb;
 	virtual void(void) RunToBombsite;
 	virtual void(void) RunToHostages;
+	/* Let the bot roam randomly inside a given radius from a given origin. */
+	virtual void(vector, int) Roam;
 
 	virtual void(void) CreateObjective;
 	virtual void(void) PostFrame;
@@ -53,7 +55,7 @@ void
 csbot::RunToBomb(void)
 {
 	entity e = world;
-	e = find(e, ::model, "models/w_c4bomb.mdl");
+	e = find(e, ::model, "models/w_c4.mdl");
 	route_calculate(this, e.origin, 0, Bot_RouteCB);
 	ChatSayTeam("Going to run to the bomb!");
 }
@@ -88,6 +90,43 @@ csbot::RunToHostages(void)
 	ChatSayTeam("Going to run to the hostages!");
 }
 
+/** @brief Let the bot roam within a maximum distance from a given origin. */
+void csbot::Roam(vector roamOrigin, int maxDistance) {
+	/* Get random point whitin a radius from the given origin */
+	int angle = random(0, 360); /* random angle. */
+	int distance = random(0, maxDistance); /* random distance */
+	float radian = angle * 3.145238095238 / 180;
+	vector randLoc = roamOrigin;
+	randLoc.x += sin(radian) * distance;
+	randLoc.y += cos(radian) * distance;
+
+	/* Find closest waypoint to our random location. */
+	float flBestDist = COST_INFINITE;
+	int iBestNodeIndex = -1;
+	for (int i = 0; i < g_iNodes; i++) {
+		float fDist = vlen(g_pNodes[i].origin - randLoc) - g_pNodes[i].radius;
+
+		if (fDist > (float)maxDistance) {
+			/* Distance is greater then our maxDistance */
+			continue;
+		}
+
+		if (fDist < flBestDist) {
+			flBestDist = fDist;
+			iBestNodeIndex = i;
+		}
+	}
+
+	if (iBestNodeIndex == -1) {
+		/* TODO No waypoint in range found */
+		print("WARNING!: Roaming failed, could not find waypoint in range.\n");
+		return;
+	}
+
+	/* Go to the random waypoint. */
+	route_calculate(this, g_pNodes[iBestNodeIndex].origin, 0, Bot_RouteCB);
+}
+
 void
 csbot::CreateObjective(void)
 {
@@ -95,8 +134,18 @@ csbot::CreateObjective(void)
 		/* Bomb map */
 		if (g_cs_bombplanted) {
 			/* Bomb planted */
-			RunToBombsite();
-			return;
+			if (team == TEAM_T) {
+				entity e = find(e, ::model, "models/w_c4.mdl");
+				if (e != world) {
+					/* Let T bots roam around the planted bomb */
+					Roam(e.origin, 500);
+					return;
+				}
+			} else {
+				/* CT bots: run to bomb so we can defuse it! */
+				RunToBomb();
+				return;
+			}
 		} else {
 			/* Bomb not planted yet */
 			if (g_items & ITEM_C4BOMB) {
