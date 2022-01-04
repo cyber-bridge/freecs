@@ -27,6 +27,8 @@ class csbot:bot
 	virtual void(void) CreateObjective;
 	virtual void(void) PostFrame;
 	virtual void(void) WeaponThink;
+
+	virtual entity(int) GetBombsite;
 };
 
 void
@@ -61,16 +63,16 @@ csbot::RunToBombsite(void)
 	entity e = world;
 	vector vecTarget;
 
-	/* FIXME: make this random and error checked */
-	while (e == world)
-		e = find(e, ::classname, "func_bomb_target");
+	/* Get random bombsite */
+	int randomBombsiteIndex = random(0, g_cs_bombzones);
+	e = GetBombsite(randomBombsiteIndex);
 
 	vecTarget[0] = e.absmin[0] + (0.5 * (e.absmax[0] - e.absmin[0]));
 	vecTarget[1] = e.absmin[1] + (0.5 * (e.absmax[1] - e.absmin[1]));
 	vecTarget[2] = e.absmin[2] + (0.5 * (e.absmax[2] - e.absmin[2]));
 
 	route_calculate(this, vecTarget, 0, Bot_RouteCB);
-	ChatSayTeam("Going to run to a bomb site!");
+	ChatSayTeam(strcat("Going to run to a bomb site ", itos(randomBombsiteIndex), "!"));
 }
 
 void
@@ -124,6 +126,24 @@ csbot::WeaponThink(void)
 		}
 	}
 };
+
+/** @brief Get bombsite entry by bombsite index
+ *
+ *  @note
+ *  When there are for example 2 bombsites (g_cs_bombzones == 2) then valid
+ *  indexes should be 0 and 1.
+ * */
+entity csbot::GetBombsite(int bombsiteIndex)
+{
+	int curIndex = 0;
+	for (entity a = world; (a = find(a, ::classname, "func_bomb_target"));) {
+		if (curIndex == bombsiteIndex)
+			return a;
+		++curIndex;
+	}
+	print("WARNING: cstrike/server/bot.qc GetBombsite: bombsite with index (", itos(bombsiteIndex), ") not found!\n");
+	return world;
+}
 
 void
 csbot::csbot(void)
