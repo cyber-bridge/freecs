@@ -29,6 +29,8 @@ class csbot:bot
 	virtual void(void) WeaponThink;
 
 	virtual entity(int) GetBombsite;
+
+	int m_iIsFetchingBomb;
 };
 
 void
@@ -116,6 +118,17 @@ csbot::CreateObjective(void)
 				}
 				return;
 			}
+			else if (team == TEAM_T && m_iIsFetchingBomb == FALSE) {
+				/* Check if the bomb has been dropped */
+				entity e = find(world, ::model, "models/w_backpack.mdl");
+				if (e != world) {
+					/* Go fetch dropped bomb! */
+					m_iIsFetchingBomb = TRUE;
+					ChatSayTeam("Arrr! Bomb on the ground, going to fetch it!");
+					route_calculate(this, e.origin, 0, Bot_RouteCB);
+					return;
+				}
+			}
 		}
 	}
 
@@ -177,6 +190,33 @@ csbot::csbot(void)
 	bot::bot();
 	targetname = "_csbot_";
 	team = infokeyf(this, "*team");
+
+	m_iIsFetchingBomb = FALSE;
+}
+
+/* Bomb has been picked up. */
+void CSBot_BombPickedUp(void) {
+	entity e = find(world, ::model, "models/w_backpack.mdl");
+	if (e != world) {
+		/* for all T bots that are after the bomb we need to cancel their action
+		 * else they will posibly be stuck. */
+		for (entity a = world; (a = find(a, classname, "player"));) {
+			if (clienttype(a) != CLIENTTYPE_REAL) {
+				csbot targ;
+				targ = (csbot)a;
+
+				if (targ.m_iIsFetchingBomb == TRUE) {
+					targ.RouteClear();
+					targ.m_iIsFetchingBomb = FALSE;
+				}
+			}
+		}
+
+		/* remove the backpack bomb from the world, else on the next ticks it
+		 * will still be found by find(world, ::model, "models/w_backpack.mdl");
+		 * and the then the bots will go chase a ghost.. */
+		remove(e);
+	}
 }
 
 void
@@ -294,21 +334,16 @@ CSBot_BuyStart(void)
 void
 CSBot_RoundStart(void)
 {
-	/* if (g_cs_bombzones <= 0) {
+	if (g_cs_bombzones <= 0) {
 		return;
 	}
-		for (entity a = world; (a = find(a, classname, "player"));) {
-			if (clienttype(a) != CLIENTTYPE_REAL) {
-				csbot targ;
-				targ = (csbot)a;
+	for (entity a = world; (a = find(a, classname, "player"));) {
+		if (clienttype(a) != CLIENTTYPE_REAL) {
+			csbot targ;
+			targ = (csbot)a;
 
-				if (targ.team == TEAM_T)
-					continue;
-				if (targ.health <= 0)
-					continue;
-				
-				targ.RunToBombsite();
-			}
+			if (targ.team == TEAM_T)
+				targ.m_iIsFetchingBomb = FALSE;
 		}
-	} */
+	}
 }

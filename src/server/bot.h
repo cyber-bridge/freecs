@@ -14,6 +14,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */ 
 
+void CSBot_BombPickedUp(void);
 void CSBot_BombPlantedNotify(void);
 void CSBot_HostageRescueNotify(void);
 void CSBot_RoundStart(void);

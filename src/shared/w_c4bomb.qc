@@ -188,6 +188,9 @@ w_c4bomb_pickup(int new, int startammo)
 
 	if (pl.team != TEAM_T)
 		return (0);
+
+	/* notify bots that the bomb has been picked up */
+	CSBot_BombPickedUp();
 #endif
 	return (1);
 }
