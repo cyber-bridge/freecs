@@ -32,6 +32,7 @@ var int g_cs_escapezones;
 var int g_cs_bombzones;
 
 var int g_cs_bombplanted;
+var int g_cs_bombbeingdefused;
 var int g_cs_roundswon_ct;
 var int g_cs_roundswon_t;
 var int g_cs_roundsplayed;

@@ -96,10 +96,11 @@ item_c4::Logic(void)
 		/* we need to check if the user has changed every frame. */
 		if (!m_eUser.button5) {
 			ClearProgress();
-			
+
 			/* clear user */
 			m_eUser = world;
 			m_flDefusalState = 0.0f;
+			g_cs_bombbeingdefused = FALSE;
 		} else {
 
 			/* defusal kit always cuts the time in half */
@@ -111,6 +112,8 @@ item_c4::Logic(void)
 			/* tracked stat */
 			pl.progress = m_flDefusalState;
 			pl.flags |= FL_FROZEN;
+
+			g_cs_bombbeingdefused = TRUE;
 		}
 	}
 
@@ -121,6 +124,7 @@ item_c4::Logic(void)
 		Radio_BroadcastMessage(RADIO_BOMBDEF);
 		m_flBeepTime = 0.0f;
 		m_flDefusalState = 0;
+		g_cs_bombbeingdefused = FALSE;
 		remove(this);
 		return;
 	}
@@ -144,6 +148,7 @@ item_c4::Logic(void)
 
 		m_flBeepTime = 0.0f;
 		m_flDefusalState = 0;
+		g_cs_bombbeingdefused = FALSE;
 		remove(this);
 		return;
 	}

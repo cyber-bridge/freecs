@@ -31,8 +31,10 @@ class csbot:bot
 	virtual void(void) WeaponThink;
 
 	virtual entity(int) GetBombsite;
+	virtual void(vector, float) AimLerp;
 
 	int m_iIsFetchingBomb;
+	int m_iIsDefusingBomb;
 };
 
 void
@@ -134,16 +136,62 @@ csbot::CreateObjective(void)
 		/* Bomb map */
 		if (g_cs_bombplanted) {
 			/* Bomb planted */
+			entity eBomb = find(world, ::model, "models/w_c4.mdl");
+			if (eBomb == world) {
+				// TODO bomb planted but it doesn't exist?
+				return;
+			}
+
 			if (team == TEAM_T) {
-				entity e = find(e, ::model, "models/w_c4.mdl");
-				if (e != world) {
-					/* Let T bots roam around the planted bomb */
-					Roam(e.origin, 500);
-					return;
-				}
+				/* Let T bots roam around the planted bomb */
+				Roam(eBomb.origin, 500);
+				return;
 			} else {
 				/* CT bots: run to bomb so we can defuse it! */
-				RunToBomb();
+
+				if (m_iIsDefusingBomb && m_iIsDefusingBomb == TRUE) {
+					/* This bot is currently defusing the bomb. */
+					if (!(flags & FL_FROZEN)) {
+						/* Defusing somehow failed. */
+						ChatSayTeam("Defusing failed!");
+						m_iIsDefusingBomb = FALSE;
+					} else {
+						/* Continue defusing. */
+						input_buttons |= (INPUT_BUTTON5 | INPUT_BUTTON8);
+						input_movevalues = [0,0,0];
+						return;
+					}
+				}
+
+				if (g_cs_bombbeingdefused && m_iIsDefusingBomb == FALSE) {
+					/* Bomb is being defused but not by this bot, defend the
+					 * defuser! */
+					Roam(eBomb.origin, 300);
+					return;
+				}
+
+				/* Still not defusing.. */
+
+				int distToBomb = floor(vlen(eBomb.origin - origin));
+				if (distToBomb > 50) {
+					/* To far away from the bomb to defuse it, run to it! */
+					RunToBomb();
+				} else {
+					/* Aim at the bomb. */
+					input_buttons |= INPUT_BUTTON8; /* duck */
+					if ((flags & FL_ONUSABLE)) {
+						/* Aimed at the bomb, ready to defuse! */
+						ChatSayTeam("Defusing!");
+						input_buttons |= INPUT_BUTTON5;
+						input_movevalues = [0,0,0];
+						m_iIsDefusingBomb = TRUE;
+					} else {
+						/* Do the real aiming */
+						float flLerp = bound(0.0f, frametime * 45, 1.0f);  /* aim speed */
+						AimLerp(eBomb.origin, flLerp);
+					}
+				}
+
 				return;
 			}
 		} else {
@@ -233,6 +281,39 @@ entity csbot::GetBombsite(int bombsiteIndex)
 	return world;
 }
 
+/** @brief Aim towards a given (vector)aimpos with a given (float)lerp speed.
+ *
+ * @note
+ * Copied code from nuclide botlib (inside bot::RunAI), maybe make this a
+ * method there, could be usefull for other stuff?
+ **/
+void csbot::AimLerp(vector aimpos, float flLerp) {
+	vector aimdir, vecNewAngles;
+
+	/* that's the old angle */
+	makevectors(v_angle);
+	vecNewAngles = v_forward;
+
+	/* aimdir = new final angle */
+	aimdir = vectoangles(aimpos - origin);
+	makevectors(aimdir);
+
+	/* slowly lerp towards the final angle */
+	vecNewAngles[0] = Math_Lerp(vecNewAngles[0], v_forward[0], flLerp);
+	vecNewAngles[1] = Math_Lerp(vecNewAngles[1], v_forward[1], flLerp);
+	vecNewAngles[2] = Math_Lerp(vecNewAngles[2], v_forward[2], flLerp);
+
+	/* make sure we're aiming tight */
+	v_angle = vectoangles(vecNewAngles);
+	v_angle[0] = Math_FixDelta(v_angle[0]);
+	v_angle[1] = Math_FixDelta(v_angle[1]);
+	v_angle[2] = Math_FixDelta(v_angle[2]);
+	angles[0] = Math_FixDelta(v_angle[0]);
+	angles[1] = Math_FixDelta(v_angle[1]);
+	angles[2] = Math_FixDelta(v_angle[2]);
+	input_angles = v_angle;
+}
+
 void
 csbot::csbot(void)
 {
@@ -241,6 +322,7 @@ csbot::csbot(void)
 	team = infokeyf(this, "*team");
 
 	m_iIsFetchingBomb = FALSE;
+	m_iIsDefusingBomb = FALSE;
 }
 
 /* Bomb has been picked up. */
@@ -280,8 +362,8 @@ CSBot_BombPlantedNotify(void)
 				continue;
 			if (targ.health <= 0)
 				continue;
-				
-			targ.RunToBombsite();
+
+			targ.RunToBomb();
 		}
 	}
 }
@@ -353,6 +435,11 @@ CSBot_BuyStart_Shop(void)
 			CSEv_BuyEquipment_f(1);
 	}
 
+	/* CT: Buy bomb defuse kit when enough money left */
+	if (pl.team == TEAM_CT && g_cs_bombzones > 0 && g_cstrikeUtilPrice[5] <= pl.money) {
+		CSEv_BuyEquipment_f(5);
+	}
+
 	/* make SURE we switch to it */
 	for (int i = 0; i < g_weapons.length; i++)
 		if (pl.g_items & g_weapons[i].id) {
@@ -393,6 +480,7 @@ CSBot_RoundStart(void)
 
 			if (targ.team == TEAM_T)
 				targ.m_iIsFetchingBomb = FALSE;
+				targ.m_iIsDefusingBomb = FALSE;
 		}
 	}
 }

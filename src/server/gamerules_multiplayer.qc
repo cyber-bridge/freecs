@@ -542,6 +542,7 @@ CSMultiplayerRules::RoundOver(int iTeamWon, int iMoneyReward, int fSilent)
 
 	g_cs_hostagesrescued = 0;
 	g_cs_bombplanted = 0;
+	g_cs_bombbeingdefused = 0;
 	g_cs_roundsplayed++;
 
 	forceinfokey(world, "teamscore_1", sprintf("%i", g_cs_roundswon_t));
