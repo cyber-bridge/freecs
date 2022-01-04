@@ -89,9 +89,35 @@ csbot::RunToHostages(void)
 void
 csbot::CreateObjective(void)
 {
-
-	if (g_cs_bombzones > 0 && g_cs_bombplanted)
-		RunToBombsite();
+	if (g_cs_bombzones > 0) {
+		/* Bomb map */
+		if (g_cs_bombplanted) {
+			/* Bomb planted */
+			RunToBombsite();
+			return;
+		} else {
+			/* Bomb not planted yet */
+			if (g_items & ITEM_C4BOMB) {
+				/* We carry the bomb */
+				if (gflags & GF_BOMBZONE) {
+					/* We are at a bombsite and ready to plant the bomb */
+					if (activeweapon != WEAPON_C4BOMB) {
+						/* Switch weapon to bomb */
+						ChatSayTeam("Going to plant the bomb!");
+						activeweapon = WEAPON_C4BOMB;
+						Weapons_Draw();
+					}
+					/* Duck and plant bomb. */
+					input_buttons |= (INPUT_BUTTON0 | INPUT_BUTTON8);
+					input_movevalues = [0,0,0];
+				} else {
+					/* Go to a bombsite first */
+					RunToBombsite();
+				}
+				return;
+			}
+		}
+	}
 
 	if (random() < 0.5) {
 		if (g_cs_hostagestotal > 0)
